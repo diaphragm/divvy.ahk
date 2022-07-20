@@ -133,7 +133,11 @@ ShowControlWindow(){
 ; ========
 
 ElemTBLR(elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
-  rowH := A_ScreenHeight / rowSize
+  ; exclude taskbar region
+  ; work on only under and horizontal taskbar
+  WinGetPos,, ty,,, ahk_class Shell_TrayWnd
+  
+  rowH := ty / rowSize
   colW := A_ScreenWidth / colSize
 
   posX := Mod((elem-1), colSize) + 1
