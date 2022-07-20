@@ -6,6 +6,7 @@ SetWinDelay, 0
 
 #include divvy.config.ahk
 
+global hotkey
 global rowSize
 global colSize
 global accentColor
@@ -168,7 +169,7 @@ ShowControlWindow(monitor){
 }
 
 ; ========
-; Helper
+; Logic
 ; ========
 
 ElemTBLR(monitor, elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
@@ -221,10 +222,6 @@ MouseGetElem(ByRef monitor, ByRef elem){
   monitor := Ltrim(title, "#")
   elem := Ltrim(control, "Button")
 }
-
-; ========
-; Logic
-; ========
 
 Init(){
   hwndControlWindowList := ""
@@ -304,7 +301,11 @@ ClickHandler(){
 ; ========
 ; Hotkey
 ; ========
-F1::
+Hotkey, %hotkey%, Hotkey
+
+Return
+
+Hotkey:
   HotkeyHandler()
 Return
 
