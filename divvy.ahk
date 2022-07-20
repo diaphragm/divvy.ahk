@@ -304,8 +304,6 @@ ClickHandler(){
 ; ========
 
 Hotkey, %hotkey%, Hotkey
-if(dragToResize)
-  Hotkey, ~LButton Up, ~LButton
 
 Return
 
