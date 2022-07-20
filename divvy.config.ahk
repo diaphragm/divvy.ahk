@@ -2,3 +2,4 @@ hotkey = F1
 rowSize = 6
 colSize = 8
 accentColor = 0078D4
+dragToResize = False

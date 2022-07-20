@@ -10,6 +10,7 @@ global hotkey
 global rowSize
 global colSize
 global accentColor
+global dragToResize
 
 global hwndControlWindowList := ""
 global hwndResizeOverlay := ""
@@ -301,7 +302,10 @@ ClickHandler(){
 ; ========
 ; Hotkey
 ; ========
+
 Hotkey, %hotkey%, Hotkey
+if(dragToResize)
+  Hotkey, ~LButton Up, ~LButton
 
 Return
 
