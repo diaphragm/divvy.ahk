@@ -16,6 +16,7 @@ global hwndTargetOverlay:= ""
 global hwndTargetWindow := ""
 global elemFrom := 0
 global elemTo := 0
+global targetMonitor := 0
 
 ; ========
 ; Util
@@ -36,6 +37,28 @@ GetClientSize(hWnd, ByRef w := "", ByRef h := "")
   DllCall("GetClientRect", "ptr", hWnd, "ptr", &rect)
   w := NumGet(rect, 8, "int")
   h := NumGet(rect, 12, "int")
+}
+
+VirtualScreenXYWH(ByRef x, ByRef y, ByRef w, ByRef h){
+  t := 0
+  b := 0
+  l := 0
+  r := 0
+
+  SysGet, monitorCount, MonitorCount
+  Loop, %monitorCount%
+  {
+    SysGet, m, Monitor, %A_Index%
+    t := Min(t, mTop)
+    b := Max(b, mBottom)
+    l := Min(l, mLeft)
+    r := Max(r, mRight)
+  }
+
+  x := l
+  y := t
+  w := r - l
+  h := b - t
 }
 
 WinMove2(hwnd, x, y, w, h){
@@ -75,10 +98,13 @@ ShowTargetOverlay(){
   Gui, +LastFound
   WinSet, Transparent, 64
 
-  Gui, Show, x0 y0 w%A_ScreenWidth% h%A_ScreenHeight%
-
+  VirtualScreenXYWH(vsX, vsY, vsW, vsH)
+  Gui, Show, x%vsX% y%vsY% w%vsW% h%vsH%
+  
   WinGetPos2(hwndTargetWindow, x, y, w, h)
-  WinSet, Region, R15-15 W%w% H%h% %x%-%y%, ahk_id %hwndTargetOverlay%
+  rX := x - vsX
+  rY := y - vsY
+  WinSet, Region, R15-15 W%w% H%h% %rX%-%rY%, ahk_id %hwndTargetOverlay%
 }
 
 ShowResizeOverlay(){
@@ -89,14 +115,18 @@ ShowResizeOverlay(){
   Gui, 2:+LastFound
   WinSet, Transparent, 128
 
-  Gui, 2:Show, x0 y0 w%A_ScreenWidth% h%A_ScreenHeight%
+  VirtualScreenXYWH(vsX, vsY, vsW, vsH)
+  Gui, 2:Show, x%vsX% y%vsY% w%vsW% h%vsH%
 
   WinSet, Region, R15-15 W0 H0 0-0, ahk_id %hwndResizeOverlay%
 }
 
-SetResizeOverlay(e1, e2){
-  ElemsUnionXYWH(e1, e2, x, y, w, h)
-  WinSet, Region, R15-15 W%w% H%h% %x%-%y%, ahk_id %hwndResizeOverlay%
+SetResizeOverlay(monitor, e1, e2){
+  ElemsUnionXYWH(monitor, e1, e2, x, y, w, h)
+  VirtualScreenXYWH(vsX, vsY, vsW, vsH)
+  rX := x - vsX
+  rY := y - vsY
+  WinSet, Region, R15-15 W%w% H%h% %rX%-%rY%, ahk_id %hwndResizeOverlay%
 }
 
 ShowControlWindow(monitor){
@@ -105,10 +135,10 @@ ShowControlWindow(monitor){
   mW := mRight - mLeft
   mH := mBottom - mTop
 
-  sH := 200
-  sW := sH * mW / mH
-  bW := sW / colSize
-  bH := sH / rowSize
+  guiH := 200
+  guiW := guiH * mW / mH
+  bW := guiW / colSize
+  bH := guiH / rowSize
 
   num := monitor + 2  
 
@@ -141,26 +171,27 @@ ShowControlWindow(monitor){
 ; Helper
 ; ========
 
-ElemTBLR(elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
-  ; exclude taskbar region
-  ; work on only under and horizontal taskbar
-  WinGetPos,, ty,,, ahk_class Shell_TrayWnd
-  
-  rowH := ty / rowSize
-  colW := A_ScreenWidth / colSize
+ElemTBLR(monitor, elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
+  SysGet, m, MonitorWorkArea, %monitor%
+
+  mW := mRight - mLeft
+  mH := mBottom - mTop
+
+  rowH := mH / rowSize
+  colW := mW / colSize
 
   posX := Mod((elem-1), colSize) + 1
   posY := ((elem-1) // colSize) + 1
   
-  top := (posY-1) * rowH
-  bottom := posY * rowH
-  left := (posX-1) * colW
-  right := posX * colW
+  top := mTop + (posY-1) * rowH
+  bottom := mTop + posY * rowH
+  left := mLeft + (posX-1) * colW
+  right := mLeft + posX * colW
 }
 
-ElemsUnionXYWH(e1, e2, ByRef x, ByRef y, ByRef w, ByRef h){
-  ElemTBLR(e1, e1T, e1B, e1L, e1R)
-  ElemTBLR(e2, e2T, e2B, e2L, e2R)
+ElemsUnionXYWH(monitor, e1, e2, ByRef x, ByRef y, ByRef w, ByRef h){
+  ElemTBLR(monitor, e1, e1T, e1B, e1L, e1R)
+  ElemTBLR(monitor, e2, e2T, e2B, e2L, e2R)
 
   t := Min(e1T, e2T)
   b := Max(e1B, e2B)
@@ -202,6 +233,7 @@ Init(){
   hwndTargetWindow := ""
   elemFrom := 0
   elemTo := 0
+  targetMonitor := 0
 }
 
 OverlaysExist(){
@@ -216,7 +248,7 @@ OverlaysExist(){
 }
 
 ResizeTargetWindow(){
-  ElemsUnionXYWH(elemFrom, elemTo, x, y, w, h)
+  ElemsUnionXYWH(targetMonitor, elemFrom, elemTo, x, y, w, h)
   WinMove2(hwndTargetWindow, x, y, w, h)
 }
 
@@ -248,7 +280,7 @@ HotkeyHandler(){
   {
     MouseGetElem(m, n)
     if(m && n){
-      SetResizeOverlay(SOR(elemFrom, n), SOR(elemTo, n))
+      SetResizeOverlay(m, SOR(elemFrom, n), SOR(elemTo, n))
     }
   }
 }
@@ -262,7 +294,8 @@ ClickHandler(){
     elemFrom := n
   } else {
     elemTo := n
-  
+    targetMonitor := m
+
     CloseOverlays()
     ResizeTargetWindow()
   }
