@@ -10,7 +10,7 @@ global rowSize
 global colSize
 global accentColor
 
-global hwndControlWindow := ""
+global hwndControlWindowList := ""
 global hwndResizeOverlay := ""
 global hwndTargetOverlay:= ""
 global hwndTargetWindow := ""
@@ -27,12 +27,6 @@ SOR(a, b){
     Return a
   else
     Return b
-}
-
-MouseGetElem(ByRef window, ByRef elem){
-  MouseGetPos,,, w, c
-  window := w
-  elem := Ltrim(c, "Button")
 }
 
 ; Copy from WindowSpy.ahk
@@ -75,13 +69,13 @@ WinGetPos2(hwnd, ByRef x, ByRef y, ByRef w, ByRef h){
 ; ========
 
 ShowTargetOverlay(){
-  Gui, 3:Color, %accentColor%
-  Gui, 3:+AlwaysOnTop -Caption
-  Gui, 3:+HwndhwndTargetOverlay
-  Gui, 3:+LastFound
+  Gui, Color, %accentColor%
+  Gui, +AlwaysOnTop -Caption
+  Gui, +HwndhwndTargetOverlay
+  Gui, +LastFound
   WinSet, Transparent, 64
 
-  Gui, 3:Show, x0 y0 w%A_ScreenWidth% h%A_ScreenHeight%
+  Gui, Show, x0 y0 w%A_ScreenWidth% h%A_ScreenHeight%
 
   WinGetPos2(hwndTargetWindow, x, y, w, h)
   WinSet, Region, R15-15 W%w% H%h% %x%-%y%, ahk_id %hwndTargetOverlay%
@@ -90,7 +84,7 @@ ShowTargetOverlay(){
 ShowResizeOverlay(){
   Gui, 2:Color, %accentColor%
   Gui, 2:+AlwaysOnTop -Caption
-  Gui, 2:+Owner3
+  Gui, 2:+Owner1
   Gui, 2:+HwndhwndResizeOverlay
   Gui, 2:+LastFound
   WinSet, Transparent, 128
@@ -105,27 +99,42 @@ SetResizeOverlay(e1, e2){
   WinSet, Region, R15-15 W%w% H%h% %x%-%y%, ahk_id %hwndResizeOverlay%
 }
 
-ShowControlWindow(){
+ShowControlWindow(monitor){
+  SysGet, m, MonitorWorkArea, %monitor%
+
+  mW := mRight - mLeft
+  mH := mBottom - mTop
+
   sH := 200
-  sW := sH * A_ScreenWidth / A_ScreenHeight
+  sW := sH * mW / mH
   bW := sW / colSize
   bH := sH / rowSize
 
+  num := monitor + 2  
+
   Loop, %rowSize%
   {
-    Gui, add, Button, x10 w%bW% h%bH%,
+    Gui, %num%:add, Button, x10 w%bW% h%bH%,
     i := colSize - 1
     Loop, %i%
     {
-      Gui, add, Button, x+0 yp+0 w%bW% h%bH%,
+      Gui, %num%:add, Button, x+0 yp+0 w%bW% h%bH%,
     }
-    Gui, Margin, 10, 0
+    Gui, %num%:Margin, 10, 0
   }
-  Gui, Margin,, 8
-  Gui, +AlwaysOnTop -MaximizeBox -MinimizeBox
-  Gui, +Owner2
-  Gui, +HwndhwndControlWindow
-  Gui, Show
+  Gui, %num%:Margin,, 8
+
+  Gui, %num%:+AlwaysOnTop -MaximizeBox -MinimizeBox +Owner2
+
+  Gui, %num%:+LastFound
+  Gui, %num%:Show, Hide
+
+  hwndControlWindowList := Trim(hwndControlWindowList . " " . WinExist())
+
+  GetClientSize(WinExist(), cW, cH)
+  xc := (mLeft + mRight) / 2 - cW / 2
+  yc := (mTop + mBottom) / 2 - cH / 2
+  Gui, %num%:Show, x%xc% y%yc%, #%monitor%
 }
 
 ; ========
@@ -164,12 +173,30 @@ ElemsUnionXYWH(e1, e2, ByRef x, ByRef y, ByRef w, ByRef h){
   w := r - l
 }
 
+IsControlWindow(hwnd){
+  Loop, Parse, hwndControlWindowList, " "
+     if(hwnd == A_LoopField)
+      Return True    
+  
+  Return False
+}
+
+MouseGetElem(ByRef monitor, ByRef elem){
+  MouseGetPos,,, hwnd, control
+  if(!IsControlWindow(hwnd))
+    Return
+
+  WinGetTitle, title, ahk_id %hwnd%
+  monitor := Ltrim(title, "#")
+  elem := Ltrim(control, "Button")
+}
+
 ; ========
 ; Logic
 ; ========
 
 Init(){
-  hwndControlWindow := ""
+  hwndControlWindowList := ""
   hwndResizeOverlay := ""
   hwndTargetOverlay:= ""
   hwndTargetWindow := ""
@@ -178,7 +205,14 @@ Init(){
 }
 
 OverlaysExist(){
-  Return WinExist("ahk_id " + hwndControlWindow)
+  if(hwndControlWindowList == "")
+    Return false
+
+  Loop, Parse, hwndControlWindowList, " "
+    if(!WinExist("ahk_id " . A_LoopField))
+      Return False    
+  
+  Return True
 }
 
 ResizeTargetWindow(){
@@ -187,6 +221,8 @@ ResizeTargetWindow(){
 }
 
 CloseOverlays(){
+  Loop, Parse, hwndControlWindowList, " "
+    WinClose, ahk_id %A_LoopField%
   WinClose, ahk_id %hwndControlWindow%
   WinClose, ahk_id %hwndResizeOverlay%
   WinClose, ahk_id %hwndTargetOverlay%
@@ -204,20 +240,22 @@ HotkeyHandler(){
 
   ShowTargetOverlay()
   ShowResizeOverlay()
-  ShowControlWindow()
+  SysGet, monitorCount, MonitorCount
+  Loop, %monitorCount%
+    ShowControlWindow(A_Index)
 
   While OverlaysExist()
   {
-    MouseGetElem(w, n)
-    if(w == hwndControlWindow && n){
+    MouseGetElem(m, n)
+    if(m && n){
       SetResizeOverlay(SOR(elemFrom, n), SOR(elemTo, n))
     }
   }
 }
 
 ClickHandler(){
-  MouseGetElem(w, n)
-  if(!(w = hwndControlWindow && n))
+  MouseGetElem(m, n)
+  if(!(m && n))
     Return
      
   if(!elemFrom){
