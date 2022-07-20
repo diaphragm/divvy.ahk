@@ -9,7 +9,6 @@ SetWinDelay, 0
 global rowSize
 global colSize
 global accentColor
-global buttonSize
 
 global hwndControlWindow := ""
 global hwndResizeOverlay := ""
@@ -107,13 +106,18 @@ SetResizeOverlay(e1, e2){
 }
 
 ShowControlWindow(){
+  sH := 200
+  sW := sH * A_ScreenWidth / A_ScreenHeight
+  bW := sW / colSize
+  bH := sH / rowSize
+
   Loop, %rowSize%
   {
-    Gui, add, Button, x10 h%buttonSize% w%buttonSize%,
+    Gui, add, Button, x10 w%bW% h%bH%,
     i := colSize - 1
     Loop, %i%
     {
-      Gui, add, Button, x+0 yp+0 h%buttonSize% w%buttonSize%,
+      Gui, add, Button, x+0 yp+0 w%bW% h%bH%,
     }
     Gui, Margin, 10, 0
   }
@@ -133,7 +137,7 @@ ElemTBLR(elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
   colW := A_ScreenWidth / colSize
 
   posX := Mod((elem-1), colSize) + 1
-  posY := ((elem-1) // rowSize) + 1
+  posY := ((elem-1) // colSize) + 1
   
   top := (posY-1) * rowH
   bottom := posY * rowH
