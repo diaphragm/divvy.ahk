@@ -16,8 +16,8 @@ global hwndControlWindowList := ""
 global hwndResizeOverlay := ""
 global hwndTargetOverlay:= ""
 global hwndTargetWindow := ""
-global elemFrom := 0
-global elemTo := 0
+global gridFrom := 0
+global gridTo := 0
 global targetMonitor := 0
 
 ; ========
@@ -124,7 +124,7 @@ ShowResizeOverlay(){
 }
 
 SetResizeOverlay(monitor, e1, e2){
-  ElemsUnionXYWH(monitor, e1, e2, x, y, w, h)
+  GridsUnionXYWH(monitor, e1, e2, x, y, w, h)
   VirtualScreenXYWH(vsX, vsY, vsW, vsH)
   rX := x - vsX
   rY := y - vsY
@@ -173,7 +173,7 @@ ShowControlWindow(monitor){
 ; Logic
 ; ========
 
-ElemTBLR(monitor, elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
+GridTBLR(monitor, grid, ByRef top, ByRef bottom, ByRef left, ByRef right){
   SysGet, m, MonitorWorkArea, %monitor%
 
   mW := mRight - mLeft
@@ -182,8 +182,8 @@ ElemTBLR(monitor, elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
   rowH := mH / rowSize
   colW := mW / colSize
 
-  posX := Mod((elem-1), colSize) + 1
-  posY := ((elem-1) // colSize) + 1
+  posX := Mod((grid-1), colSize) + 1
+  posY := ((grid-1) // colSize) + 1
   
   top := mTop + (posY-1) * rowH
   bottom := mTop + posY * rowH
@@ -191,9 +191,9 @@ ElemTBLR(monitor, elem, ByRef top, ByRef bottom, ByRef left, ByRef right){
   right := mLeft + posX * colW
 }
 
-ElemsUnionXYWH(monitor, e1, e2, ByRef x, ByRef y, ByRef w, ByRef h){
-  ElemTBLR(monitor, e1, e1T, e1B, e1L, e1R)
-  ElemTBLR(monitor, e2, e2T, e2B, e2L, e2R)
+GridsUnionXYWH(monitor, e1, e2, ByRef x, ByRef y, ByRef w, ByRef h){
+  GridTBLR(monitor, e1, e1T, e1B, e1L, e1R)
+  GridTBLR(monitor, e2, e2T, e2B, e2L, e2R)
 
   t := Min(e1T, e2T)
   b := Max(e1B, e2B)
@@ -214,14 +214,14 @@ IsControlWindow(hwnd){
   Return False
 }
 
-MouseGetElem(ByRef monitor, ByRef elem){
+MouseGetGrid(ByRef monitor, ByRef grid){
   MouseGetPos,,, hwnd, control
   if(!IsControlWindow(hwnd))
     Return
 
   WinGetTitle, title, ahk_id %hwnd%
   monitor := Ltrim(title, "#")
-  elem := Ltrim(control, "Button")
+  grid := Ltrim(control, "Button")
 }
 
 Init(){
@@ -229,8 +229,8 @@ Init(){
   hwndResizeOverlay := ""
   hwndTargetOverlay:= ""
   hwndTargetWindow := ""
-  elemFrom := 0
-  elemTo := 0
+  gridFrom := 0
+  gridTo := 0
   targetMonitor := 0
 }
 
@@ -246,7 +246,7 @@ OverlaysExist(){
 }
 
 ResizeTargetWindow(){
-  ElemsUnionXYWH(targetMonitor, elemFrom, elemTo, x, y, w, h)
+  GridsUnionXYWH(targetMonitor, gridFrom, gridTo, x, y, w, h)
   WinMove2(hwndTargetWindow, x, y, w, h)
 }
 
@@ -276,22 +276,22 @@ HotkeyHandler(){
 
   While OverlaysExist()
   {
-    MouseGetElem(m, n)
+    MouseGetGrid(m, n)
     if(m && n){
-      SetResizeOverlay(m, SOR(elemFrom, n), SOR(elemTo, n))
+      SetResizeOverlay(m, SOR(gridFrom, n), SOR(gridTo, n))
     }
   }
 }
 
 ClickHandler(){
-  MouseGetElem(m, n)
+  MouseGetGrid(m, n)
   if(!(m && n))
     Return
      
-  if(!elemFrom){
-    elemFrom := n
+  if(!gridFrom){
+    gridFrom := n
   } else {
-    elemTo := n
+    gridTo := n
     targetMonitor := m
 
     CloseOverlays()
