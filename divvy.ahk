@@ -296,6 +296,8 @@ HotkeyHandler(){
       SetResizeOverlay(m, SOR(gridFrom, n), SOR(gridTo, n))
     }
   }
+
+  CloseOverlays()
 }
 
 ClickHandler(){
