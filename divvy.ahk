@@ -89,6 +89,21 @@ WinGetPos2(hwnd, ByRef x, ByRef y, ByRef w, ByRef h){
   h := ch
 }
 
+GetMonitorIndex(hwnd){
+  WinGetPos, wx, wy, ww, wh, ahk_id %hwnd%
+  
+  SysGet, monitorCount, MonitorCount
+  Loop, %monitorCount%
+  {
+    SysGet, m, MonitorWorkArea, %A_Index%
+    if(mLeft <= wx && wx <= mRight && mTop <= wy && wy <= mBottom)
+    Return %A_Index%
+  }
+
+  SysGet, primary, MonitorPrimary
+  Return %primary%
+}
+
 ; ========
 ; GUI
 ; ========
@@ -299,11 +314,70 @@ ClickHandler(){
   }
 }
 
+FitNearestGrid(){
+  WinGetPos2(hwndTargetWindow, x, y, w, h)
+  l := x
+  r := x + w
+  t := y
+  b := y + h
+
+  monitor := GetMonitorIndex(hwndTargetWindow)
+  SysGet, m, MonitorWorkArea, %monitor%
+  colW := (mRight - mLeft) / colSize
+  rowH := (mBottom - mTop) / rowSize
+
+  dL := colW
+  dR := colW
+  dT := rowH
+  dB := rowH
+
+  Loop, %colSize%
+  {
+    i := mLeft + colW * (A_Index - 1)
+    
+    if(Abs(l - i) < dL)
+    {
+      nL := i
+      dL := Abs(l - i)
+    }
+    if(Abs(R - i) < dR)
+    {
+      nR := i
+      dR := Abs(r - i)
+    }
+  }
+
+  Loop, %rowSize%
+  {
+    i := mTop + rowH * (A_Index - 1)
+    
+    if(Abs(t - i) < dT)
+    {
+      nT := i
+      dT := Abs(t - i)
+    }
+    if(Abs(b - i) < dB)
+    {
+      nB := i
+      dB := Abs(b - i)
+    }
+  }
+  
+  nX := nL
+  nY := nT
+  nW := Max(nR - nL, colW)
+  nH := Max(nB - nT, rowH)
+  WinMove2(hwndTargetWindow, nX, nY, nW, nH)
+
+  CloseOverlays()
+}
+
 ; ========
 ; Hotkey
 ; ========
 
 Hotkey, %hotkey%, Hotkey
+Hotkey, %hotkeyFit%, HotkeyFit
 
 Return
 
@@ -311,6 +385,12 @@ Hotkey:
   HotkeyHandler()
 Return
 
+#If OverlaysExist()
+HotkeyFit:
+  FitNearestGrid()
+Return
+
+#If
 ~LButton::
   ClickHandler()
 Return
@@ -318,3 +398,4 @@ Return
 ~Esc::
   CloseOverlays()
 Return
+
